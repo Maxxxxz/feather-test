@@ -22,11 +22,9 @@ void setup() {
   cell.begin(CELL_D_PIN, CELL_SCK_PIN);
 //  cell.set_cell(LOADCELL_DIVIDER);
 //  cell.set_offset(LOADCELL_OFFSET);
-//  
 }
 
 void loop() {
-  Serial.println("Hi again");
   if (cell.is_ready()) {
     long reading = cell.read();
     Serial.print("HX711 reading: ");
