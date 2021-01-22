@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <HX711.h>
 
-// to install
-//https://learn.adafruit.com/adafruit-feather-huzzah-esp8266/using-arduino-ide
+// https://github.com/tzapu/WiFiManager
 //#include <WiFiManager.h>
 
 HX711 cell;
