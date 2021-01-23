@@ -13,8 +13,8 @@
 //const long LOADCELL_DIVIDER = 5895655;
 
 // what? https://github.com/tzapu/WiFiManager/issues/379
-WiFiManagerParameter ownerEmail("email", "E-Mail", "");
-WiFiManagerParameter ownerPassword("password", "Password", "");
+WiFiManagerParameter ownerEmail("email", "E-Mail", "", 50);
+WiFiManagerParameter ownerPassword("password", "Password", "", 50);
 
 WiFiManager wfm;
 
@@ -35,7 +35,7 @@ void setup() {
 
   wfm.setDarkMode(true);
 //  wfm.autoConnect("feather", "PASSWORD");
-  wfm.startConfigPortal("feather", "PASSWORD");
+  wfm.startConfigPortal("feather");
 
 //  cell.begin(CELL_D_PIN, CELL_SCK_PIN);
 //  cell.set_cell(LOADCELL_DIVIDER);
@@ -50,6 +50,9 @@ void loop() {
 //  } else {
 //    Serial.println("HX711 not found.");
 //  }
+
+//  Serial.println(ownerEmail.getValue());
+//  Serial.println(ownerPassword.getValue());
 
   Serial.println("Hello!");
 
