@@ -15,6 +15,7 @@
 // what? https://github.com/tzapu/WiFiManager/issues/379
 WiFiManagerParameter ownerEmail("email", "E-Mail", "", 50);
 WiFiManagerParameter ownerPassword("password", "Password", "", 50);
+WiFiManagerParameter deviceName("devicename", "Device Name", "", 50);
 
 WiFiManager wfm;
 
@@ -32,9 +33,11 @@ void setup() {
 
   wfm.addParameter(&ownerEmail);
   wfm.addParameter(&ownerPassword);
+  wfm.addParameter(&deviceName);
 
   wfm.setDarkMode(true);
 //  wfm.autoConnect("feather", "PASSWORD");
+  wfm.app.getname();
   wfm.startConfigPortal("feather");
 
 //  cell.begin(CELL_D_PIN, CELL_SCK_PIN);
@@ -55,6 +58,8 @@ void loop() {
 //  Serial.println(ownerPassword.getValue());
 
   Serial.println("Hello!");
+
+  
 
   delay(1000);
 }
