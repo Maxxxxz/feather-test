@@ -11,14 +11,25 @@
 
 // TODO: optimize strings into progmem
 
-const char* dbURL     PROGMEM = "https://mygunwasmoved.firebaseio.com";
-const char* loginURL  PROGMEM = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword";
-
-const char* USERS     PROGMEM = "/users/";
-const char* DEVICES   PROGMEM = "/Devices.json";
-const char* AUTH      PROGMEM = "?auth";
+//const char* DBURL     PROGMEM = "https://mygunwasmoved.firebaseio.com";
+//const char* DBKEY     PROGMEM = "AIzaSyAVIcrbM3zrIjGvaRh5DgcAEN_IOSrgQUw"
+//const char* LOGINURL  PROGMEM = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyAVIcrbM3zrIjGvaRh5DgcAEN_IOSrgQUw";
+//
+//const char* USERS     PROGMEM = "/users/";
+//const char* DEVICES   PROGMEM = "/Devices.json";
+//const char* AUTH      PROGMEM = "?auth=";
 
 const char* _TESTPOSTURL = "https://mygunwasmoved.firebaseio.com/users/michaelcooper99@hotmail<dot>com/Devices.json?auth=";
+
+// Temporary String vars for what will be progmem strings
+
+const String DBURL = "https://mygunwasmoved.firebaseio.com";
+const String DBKEY = "AIzaSyAVIcrbM3zrIjGvaRh5DgcAEN_IOSrgQUw";
+const String LOGINURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=";
+
+const String USERS = "/users/";
+const String DEVICES = "/Devices.json";
+const String AUTH = "?auth=";
 
 //HX711 cell;
 //const int CELL_D_PIN = 12;
@@ -39,7 +50,7 @@ WiFiManager wfm;
  * 1. Device calls FirebaseAuthAttempt on successful WiFi connection; stores email and password and device name.
  *  a. If FirebaseAuthAttempt fails, returns false; should cause device to return to station mode.
  *  b. If FirebaseAuthAttempt succeeds, returns true; device continues into client mode;
- *     stores authToken.
+ *     stores authKey.
  * 2. Device (or FirebaseAuthAttempt?) will call FirebaseRegisterDeviceAttempt
  *  a. If FirebaseRegisterDeviceAttempt fails, returns false; something bad went wrong,
  *     return to station mode with error stating something went wrong on firebase's end.
@@ -52,13 +63,16 @@ class FireBaseApp{
         ~FireBaseApp();
         bool FirebaseAuthAttempt(const char *email, const char* password);
         bool FirebaseRegisterDeviceAttempt(const char *name);
-        void getname();
+        bool load();
+        void save();
     private:
         BearSSL::WiFiClientSecure client;
-        char *authToken = "";
-        char *email = "";
-        char *password = "";
-        char *name = "";
+        String authKey = "";
+        String email = "";
+        String emailClean = "";
+        String password = "";
+        String name = "";
+        String ID = "";
 };
 
 FireBaseApp::FireBaseApp()
@@ -69,20 +83,42 @@ FireBaseApp::FireBaseApp()
 FireBaseApp::~FireBaseApp()
 {
 //    Serial.println("Destructed!");
-//    delete[] this->authToken;
+//    delete[] this->authKey;
 //    delete[] this->email;
 //    delete[] this->password;
 //    delete[] this->name;
 }
 
-void FireBaseApp::getname()
+// Save data to flash
+void FireBaseApp::save()
 {
-    Serial.println("Get Name Called.");
+  Serial.println("Called Save.");
+}
+
+// Load data from flash; also check if device ID exists in database under user
+bool FireBaseApp::load()
+{
+    Serial.println("Called Load.");
+
+    /****
+     * Load data
+     * if data exists:
+     *  if device ID not still in db:
+     *    return false
+     *  else:
+     *    return true
+     * else:
+     *  return false
+    ****/
+    
+    return false;
 }
 
 bool FireBaseApp::FirebaseAuthAttempt(const char *email, const char *password)
 {
     this->email = strdup(email);
+    this->emailClean = strdup(email);
+    this->emailClean.replace(".", "<dot>");
     this->password = strdup(password);
 //    Serial.println(this->email);
 //    Serial.println(this->password);
@@ -90,13 +126,54 @@ bool FireBaseApp::FirebaseAuthAttempt(const char *email, const char *password)
     HTTPClient https;
     
     // Load URL and other bits to build URL from progmem
-    https.begin(client, _TESTPOSTURL);
-    String data = "";
-    int rescode = https.POST(data);
-    Serial.println(rescode);
-    Serial.println(https.getString());
+    https.begin(this->client, (LOGINURL + DBKEY));
+//    http.addHeader("Content-Type", "application/json");
 
-    return true;
+    String data = "{"
+                    "\"email\": \"" + this->email + "\","
+                    "\"password\": \"" + this->password + "\","
+                    "\"returnSecureToken\": \"true\","
+                  "}";
+    
+    int rescode = https.POST(data);
+//    Serial.println(rescode);
+    String res = https.getString();
+//    Serial.println(res);
+
+    if(rescode == 200)
+    {
+//      this->authKey = parse token here
+      int loc = res.indexOf("idToken");
+
+      // failed to find idToken; should not happen if rescode == 200
+      if(loc == -1) return false;
+
+      
+      {
+        String toPass = "idToken\" \"";
+        loc += toPass.length();
+      }// put toPass out of scope to remove it
+
+      String key = "";
+      
+      res = res.substring(loc);
+      int cur = 1;
+      // could optimize this with do-while with a curChar var
+      while(res[cur] != '\"')
+      {
+        key += res[cur];
+        cur++;
+        yield();  // Stop the watchdog timer from killing the program
+      }
+//      Serial.println(key);
+      this->authKey = key;
+      
+      return true;
+    }
+    else
+    {
+      return false;
+    }
 }
 
 bool FireBaseApp::FirebaseRegisterDeviceAttempt(const char *name)
@@ -105,15 +182,25 @@ bool FireBaseApp::FirebaseRegisterDeviceAttempt(const char *name)
 
     HTTPClient https;
 
+//"https://mygunwasmoved.firebaseio.com/users/michaelcooper99@hotmail<dot>com/Devices.json?auth="
+
+    https.begin(this->client, (DBURL + USERS + this->emailClean + DEVICES + AUTH + this->authKey));
+
     String data = "{"
-                    "\"name\": " this->name ","
+                    "\"name\": \"" + this->name + "\","
                     "\"status\": \"DISABLED\""
                   "}";
     int rescode = https.POST(data);
-    Serial.println(rescode);
-    Serial.println(https.getString());
+//    Serial.println(rescode);
+//    Serial.println(https.getString());
 
-    return true;
+    return (rescode == 200);
+}
+
+// Default start function; will be used in startup and in loop for when device it not found in db or on first time startup.
+void defaultStart(FireBaseApp app)
+{
+  
 }
 
 void setup() {
@@ -121,46 +208,59 @@ void setup() {
   delay(100);
   Serial.println("Hello, World!");
 
+  // Testing; always disconnect from wireless
   wfm.disconnect();
-  
+
   // Testing; always start in station mode
   WiFi.mode(WIFI_STA);
 
-  // Add parameters here
-
-  wfm.addParameter(&ownerEmail);
-  wfm.addParameter(&ownerPassword);
-  wfm.addParameter(&deviceName);
-
-  wfm.setDarkMode(true);
-//  wfm.autoConnect("feather", "PASSWORD");
-  
-  /*************************************/
-  //  The config portal defaults to blocking behavior
-  //  we can use this to handle failed wireless login
-  //  attempts, as this is done interally by the library.
-  //  After a successful connection, it closes the portal.
-  //  This means that we can grab the information and
-  //  attempt to connect to firebase with it, and fail the loop
-  //  if these credentials are incorrect.
-  bool firebaseSuccess = false; // store firebase connection success in bool
-
+  // Load data here
   FireBaseApp a;
-  
-  
-  do
+
+  // Figure out some way to do check against changed wifi password;
+  //    Maybe check if device ID exists in memory on failed wireless login
+  if(a.load())
   {
-    wfm.startConfigPortal("feather");
+    // 
+  }
+  else
+  {
+    // Could not load data, must be new
+    // Add parameters here
 
-    // Grab firebase information from wfm object and store in FireBaseApp object
-    firebaseSuccess = a.FirebaseAuthAttempt(ownerEmail.getValue(), ownerPassword.getValue());
+    wfm.addParameter(&ownerEmail);
+    wfm.addParameter(&ownerPassword);
+    wfm.addParameter(&deviceName);
+  
+    wfm.setDarkMode(true);
 
-    // remove this
-    firebaseSuccess ? (void)(firebaseSuccess = a.FirebaseRegisterDeviceAttempt(deviceName.getValue())) : ((void)0);
+  
+
+//    wfm.autoConnect("feather", "PASSWORD");
     
-  }while(!firebaseSuccess);
-  /*************************************/
-
+    /*************************************/
+    //  The config portal defaults to blocking behavior
+    //  we can use this to handle failed wireless login
+    //  attempts, as this is done interally by the library.
+    //  After a successful connection, it closes the portal.
+    //  This means that we can grab the information and
+    //  attempt to connect to firebase with it, and fail the loop
+    //  if these credentials are incorrect.
+    bool firebaseSuccess = false; // store firebase connection success in bool
+    
+    do
+    {
+      wfm.startConfigPortal("feather");
+  
+      // Grab firebase information from wfm object and store in FireBaseApp object
+      firebaseSuccess = a.FirebaseAuthAttempt(ownerEmail.getValue(), ownerPassword.getValue());
+  
+      // remove this
+      firebaseSuccess = a.FirebaseRegisterDeviceAttempt(deviceName.getValue());
+      
+    }while(!firebaseSuccess);
+    /*************************************/
+  }
   // Set up HX711 here
 
 //  cell.begin(CELL_D_PIN, CELL_SCK_PIN);
