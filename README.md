@@ -3,6 +3,5 @@ A small test for using the adafruit feather huzzah esp8266 32u4 with an hx711 lo
 
 
 # Dependencies
-* [HttpClient](https://github.com/amcewen/HttpClient)
 * [WiFiManager](https://github.com/tzapu/WiFiManager/)
 * [HX711](https://github.com/bogde/HX711)
