@@ -4,6 +4,21 @@
 // to install
 //https://learn.adafruit.com/adafruit-feather-huzzah-esp8266/using-arduino-ide
 #include <WiFiManager.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+
+// Progmem strings
+
+// TODO: optimize strings into progmem
+
+const char* dbURL     PROGMEM = "https://mygunwasmoved.firebaseio.com";
+const char* loginURL  PROGMEM = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword";
+
+const char* USERS     PROGMEM = "/users/";
+const char* DEVICES   PROGMEM = "/Devices.json";
+const char* AUTH      PROGMEM = "?auth";
+
+const char* _TESTPOSTURL = "https://mygunwasmoved.firebaseio.com/users/michaelcooper99@hotmail<dot>com/Devices.json?auth=";
 
 //HX711 cell;
 //const int CELL_D_PIN = 12;
@@ -39,6 +54,7 @@ class FireBaseApp{
         bool FirebaseRegisterDeviceAttempt(const char *name);
         void getname();
     private:
+        BearSSL::WiFiClientSecure client;
         char *authToken = "";
         char *email = "";
         char *password = "";
@@ -47,7 +63,7 @@ class FireBaseApp{
 
 FireBaseApp::FireBaseApp()
 {
-    
+    this->client.setInsecure(); // This could lead to our URL being hijacked by a rogue dns; unlikely but something to think about
 }
 
 FireBaseApp::~FireBaseApp()
@@ -68,15 +84,35 @@ bool FireBaseApp::FirebaseAuthAttempt(const char *email, const char *password)
 {
     this->email = strdup(email);
     this->password = strdup(password);
-    Serial.println(this->email);
-    Serial.println(this->password);
+//    Serial.println(this->email);
+//    Serial.println(this->password);
+
+    HTTPClient https;
+    
+    // Load URL and other bits to build URL from progmem
+    https.begin(client, _TESTPOSTURL);
+    String data = "";
+    int rescode = https.POST(data);
+    Serial.println(rescode);
+    Serial.println(https.getString());
+
     return true;
 }
 
 bool FireBaseApp::FirebaseRegisterDeviceAttempt(const char *name)
 {
     this->name = strdup(name);
-    Serial.println(this->name);
+
+    HTTPClient https;
+
+    String data = "{"
+                    "\"name\": " this->name ","
+                    "\"status\": \"DISABLED\""
+                  "}";
+    int rescode = https.POST(data);
+    Serial.println(rescode);
+    Serial.println(https.getString());
+
     return true;
 }
 
@@ -119,6 +155,7 @@ void setup() {
     // Grab firebase information from wfm object and store in FireBaseApp object
     firebaseSuccess = a.FirebaseAuthAttempt(ownerEmail.getValue(), ownerPassword.getValue());
 
+    // remove this
     firebaseSuccess ? (void)(firebaseSuccess = a.FirebaseRegisterDeviceAttempt(deviceName.getValue())) : ((void)0);
     
   }while(!firebaseSuccess);
